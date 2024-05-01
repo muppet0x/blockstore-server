@@ -1,0 +1,23 @@
+[package]
+name = "blockstore-server"
+version = "0.1.0"
+authors = ["muppet0x"]
+edition = "2024"
+
+[dependencies]
+actix-web = "4.0"
+tokio = { version = "1.0", features = ["full"] }
+futures = "0.3"
+sha2 = "0.9"
+hex = "0.4"
+pyo3 = { version = "0.14", features = ["extension-module"] }
+
+[lib]
+name = "blockstore_lib"
+crate-type = ["cdylib"]
+
+[features]
+default = ["pyo3/extension-module"]
+
+[profile.release]
+opt-level = 3
