@@ -1,11 +1,11 @@
 use actix_web::{web, App, HttpResponse, HttpServer, Responder, Result};
 use futures::StreamExt;
+use serde::{Deserialize, Serialize};
+use sha2::{Sha256, Digest};
 use std::env;
 use tokio::fs::File;
 use tokio::io::{AsyncWriteExt, AsyncReadExt};
-use serde::{Deserialize, Serialize};
-use sha2::{Sha256, Digest};
-use std::process::Command;
+use tokio::process::Command;
 
 #[derive(Serialize, Deserialize)]
 struct FileHashResponse {
@@ -40,12 +40,18 @@ async fn upload_file(mut payload: web::Payload) -> Result<impl Responder> {
 }
 
 async fn compute_file_hash(file_name: &str) -> String {
-    let mut file = File::open(file_name).await.unwrap();
+    let mut file = match File::open(file_name).await {
+        Ok(file) => file,
+        Err(_) => return String::from("Error"),
+    };
     let mut hasher = Sha256::new();
-    let mut buffer = vec![0; 1024];
+    let mut buffer = vec![0; 1024]; // Reuse this buffer
 
     loop {
-        let count = file.read(&mut buffer).await.unwrap();
+        let count = match file.read(&mut buffer).await {
+            Ok(count) => count,
+            Err(_) => return String::from("Error"),
+        };
         if count == 0 {
             break;
         }
@@ -57,19 +63,19 @@ async fn compute_file_hash(file_name: &str) -> String {
 
 async fn invoke_python_blockchain(file_name: &str, file_hash: &str) {
     let blockchain_endpoint = env::var("BLOCKCHAIN_ENDPOINT").unwrap_or_else(|_| "http://localhost:5000".to_string());
-
     let python_command = env::var("PYTHON_COMMAND").unwrap_or_else(|_| "python".to_string());
     let script_path = env::var("PYTHON_SCRIPT_PATH").unwrap_or_else(|_| "blockchain_interface.py".to_string());
 
-    let output = Command::new(python_command)
+    let status = Command::new(python_command)
         .arg(script_path)
-        .arg(blockchain_endpoint)
+        .arg(&blockchain_endpoint)
         .arg(file_name)
         .arg(file_hash)
-        .output()
+        .status()
+        .await
         .expect("Failed to execute command");
 
-    println!("Python script output: {:?}", output);
+    println!("Python script exited with: {:?}", status);
 }
 
 async fn delete_uploaded_file() -> impl Responder {
