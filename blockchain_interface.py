@@ -1,6 +1,7 @@
 from web3 import Web3
 import os
 from dotenv import load_dotenv
+from functools import lru_cache
 
 load_dotenv()
 
@@ -28,8 +29,10 @@ def upload_file_hash(file_hash, file_info):
     signed_tx = w3.eth.account.signTransaction(tx, PRIVATE_KEY)
     tx_hash = w3.eth.sendRawTransaction(signed_tx.rawTransaction)
     receipt = w3.eth.waitForTransactionReceipt(tx_hash)
+    fetch_file_info.cache_clear()
     return receipt
 
+@lru_cache(maxsize=None)
 def fetch_file_info(file_hash):
     return contract.functions.getFileInformation(file_hash).call()
 
