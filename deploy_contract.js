@@ -1,18 +1,29 @@
 require("dotenv").config();
 const { ethers } = require("hardhat");
 
+const providerCache = {};
+
+function getProvider(network, apiKey) {
+    if (!providerCache[network]) {
+        if (network === "rinkeby") {
+            providerCache[network] = new ethers.providers.AlchemyProvider("rinkeby", apiKey);
+        } else if (network === "mainnet") {
+            providerCache[network] = new ethers.providers.AlchemyProvider("homestead", apiKey);
+        } else {
+            console.error("Unsupported network");
+            return null;
+        }
+    }
+    return providerCache[network];
+}
+
 async function main() {
     const privateKey = process.env.PRIVATE_KEY;
     const alchemyApiKey = process.env.ALCHEMY_API_KEY;
     const network = process.env.NETWORK;
 
-    let provider;
-    if (network === "rinkeby") {
-        provider = new ethers.providers.AlchemyProvider("rinkeby", alchemyApiKey);
-    } else if (network === "mainnet") {
-        provider = new ethers.providers.AlchemyProvider("homestead", alchemyApiKey);
-    } else {
-        console.error("Unsupported network");
+    const provider = getProvider(network, alchemyApiKey);
+    if (!provider) {
         return;
     }
 
@@ -24,10 +35,7 @@ async function main() {
     const MyContract = await ethers.getContractFactory("MyContract");
     console.log("Deploying MyContract...");
 
-    const myContract = await MyContract.connect(wallet).deploy(
-        
-    );
-
+    const myContract = await MyContract.connect(wallet).deploy();
     await myContract.deployed();
     console.log(`MyContract deployed to: ${myContract.address}`);
 }
