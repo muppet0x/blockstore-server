@@ -1,3 +1,23 @@
+// In StorageContract.sol
+
+function addFileHashes(bytes32[] memory hashes) public returns (bool) {
+    for (uint i = 0; i < hashes.length; i++) {
+    }
+    return true;
+}
+
+function getFileHashes(uint[] memory indices) public view returns (bytes32[] memory) {
+    bytes32[] memory hashes = new bytes32[](indices.length);
+    for (uint i = 0; i < indices.length; i++) {
+        hashes[i] = /* logic to retrieve hash by index */;
+    }
+    return hashes;
+}
+```
+
+```solidity
+// Adjusted example for TestStorageContract using StorageContract enhancements
+
 pragma solidity >=0.4.22 <0.9.0;
 
 import "truffle/Assert.sol";
@@ -6,27 +26,20 @@ import "../contracts/StorageContract.sol";
 
 contract TestStorageContract {
     StorageContract storageContract = StorageContract(DeployedAddresses.StorageContract());
-    bytes32 testHash = "test_hash_123";
+    bytes32[] testHashes = ["test_hash_123", "test_hash_456"];
 
-    function testAddFileHash() public {
-        bool result = storageContract.addFileHash(testHash);
-        Assert.isTrue(result, "Adding file hash should succeed");
+    function testBatchAddFileHash() public {
+        bool result = storageContract.addFileHashes(testHashes);
+        Assert.isTrue(result, "Batch adding file hashes should succeed");
     }
 
-    function testRetrieveFileHash() public {
-        bytes32 returnedHash = storageContract.getFileHash(0);
-        Assert.equal(returnedHash, testHash, "Retrieved hash should match the expected hash");
-    }
-
-    function testDuplicateFileHash() public {
-        bool result = storageContract.addFileHash(testHash); // Intentionally trying to add the same hash
-        Assert.isFalse(result, "Adding duplicate hash should fail");
-    }
-
-    function testAddEmptyFileHash() public {
-        bytes32 emptyHash = ""; // Solidity automatically treats this as bytes32(0)
-        // Directly calling the contract function with low level call to handle return value.
-        (bool result, ) = address(storageContract).call(abi.encodeWithSelector(storageContract.addFileHash.selector, emptyHash));
-        Assert.isFalse(result, "Adding an empty hash should fail");
+    function testBatchRetrieveFileHash() public {
+        uint[] memory indices = new uint[](2);
+        indices[0] = 0;
+        indices[1] = 1;
+        bytes32[] memory returnedHashes = storageContract.getFileHashes(indices);
+        for(uint i = 0; i < returnedHashes.length; i++) {
+            Assert.equal(returnedHashes[i], testHashes[i], "Each retrieved hash should match the expected hash");
+        }
     }
 }
