@@ -13,7 +13,7 @@ struct FileHashResponse {
     hash: String,
 }
 
-async fn upload_file(mut payload: web::Payload) -> Result<impl Responder> {
+async fn handle_file_upload(mut payload: web::Payload) -> Result<impl Responder> {
     let mut file = File::create("uploaded_file").await.map_err(|e| {
         eprintln!("Failed to create file: {}", e);
         HttpResponse::InternalServerError().finish()
@@ -30,8 +30,8 @@ async fn upload_file(mut payload: web::Payload) -> Result<impl Responder> {
         })?;
     }
 
-    let file_hash = compute_file_hash("uploaded_file").await;
-    invoke_python_blockchain("uploaded_file", &file_hash).await;
+    let file_hash = calculate_file_hash("uploaded_file").await;
+    invoke_blockchain_integration("uploaded_file", &file_hash).await;
 
     Ok(web::Json(FileHashResponse {
         file_name: "uploaded_file".to_string(),
@@ -39,43 +39,43 @@ async fn upload_file(mut payload: web::Payload) -> Result<impl Responder> {
     }))
 }
 
-async fn compute_file_hash(file_name: &str) -> String {
+async fn calculate_file_hash(file_name: &str) -> String {
     let mut file = match File::open(file_name).await {
         Ok(file) => file,
         Err(_) => return String::from("Error"),
     };
     let mut hasher = Sha256::new();
-    let mut buffer = vec![0; 1024]; // Reuse this buffer
+    let mut buffer = vec![0; 1024];
 
     loop {
-        let count = match file.read(&mut buffer).await {
+        let read_bytes = match file.read(&mut buffer).await {
             Ok(count) => count,
             Err(_) => return String::from("Error"),
         };
-        if count == 0 {
+        if read_bytes == 0 {
             break;
         }
-        hasher.update(&buffer[..count]);
+        hasher.update(&buffer[..read_bytes]);
     }
 
     format!("{:x}", hasher.finalize())
 }
 
-async fn invoke_python_blockchain(file_name: &str, file_hash: &str) {
-    let blockchain_endpoint = env::var("BLOCKCHAIN_ENDPOINT").unwrap_or_else(|_| "http://localhost:5000".to_string());
-    let python_command = env::var("PYTHON_COMMAND").unwrap_or_else(|_| "python".to_string());
-    let script_path = env::var("PYTHON_SCRIPT_PATH").unwrap_or_else(|_| "blockchain_interface.py".to_string());
+async fn invoke_blockchain_integration(file_name: &str, file_hash: &str) {
+    let block_endpoint = env::var("BLOCKCHAIN_ENDPOINT").unwrap_or_else(|_| "http://localhost:5000".to_string());
+    let python_executable = env::var("PYTHON_COMMAND").unwrap_or_else(|_| "python".to_string());
+    let integration_script_path = env::var("PYTHON_SCRIPT_PATH").unwrap_or_else(|_| "blockchain_interface.py".to_string());
 
-    let status = Command::new(python_command)
-        .arg(script_path)
-        .arg(&blockchain_endpoint)
+    let execution_status = Command::new(python_executable)
+        .arg(integration_script_path)
+        .arg(&block_endpoint)
         .arg(file_name)
         .arg(file_hash)
         .status()
         .await
         .expect("Failed to execute command");
 
-    println!("Python script exited with: {:?}", status);
+    println!("Python script execution status: {:?}", execution_status);
 }
 
 async fn delete_uploaded_file() -> impl Responder {
@@ -90,7 +90,7 @@ async fn main() -> std::io::Result<()> {
     dotenv::dotenv().ok();
     HttpServer::new(|| {
         App::new()
-            .service(web::resource("/upload").route(web::post().to(upload_file)))
+            .service(web::resource("/upload").route(web::post().to(handle_file_upload)))
             .service(web::resource("/delete").route(web::delete().to(delete_uploaded_file)))
     })
     .bind("127.0.0.1:8080")?
