@@ -16,6 +16,7 @@ if not w3.isConnected():
 
 with open('ContractABI.json', 'r') as file:
     contract_abi = file.read()
+
 contract = w3.eth.contract(address=CONTRACT_ADDRESS, abi=contract_abi)
 
 def upload_file_hash(file_hash, file_info):
@@ -29,7 +30,9 @@ def upload_file_hash(file_hash, file_info):
     signed_tx = w3.eth.account.signTransaction(tx, PRIVATE_KEY)
     tx_hash = w3.eth.sendRawTransaction(signed_tx.rawTransaction)
     receipt = w3.eth.waitForTransactionReceipt(tx_hash)
+
     fetch_file_info.cache_clear()
+    
     return receipt
 
 @lru_cache(maxsize=None)
@@ -43,9 +46,12 @@ def verify_file_integrity(file_hash, original_info):
 if __name__ == "__main__":
     test_hash = "0x1234"
     test_info = "Some info about the file"
+    
     receipt = upload_file_hash(test_hash, test_info)
     print("File hash uploaded:", receipt)
+    
     fetched_info = fetch_file_info(test_hash)
     print("Fetched file info:", fetched_info)
+    
     integrity_verified = verify_file_integrity(test_hash, test_info)
     print("File integrity verified:", integrity_verified)
