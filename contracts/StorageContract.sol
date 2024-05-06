@@ -30,13 +30,13 @@ contract StorageContract {
 
     function retrieveFileDetails(bytes32 fileHash) public view 
         returns (
-            address owner,
-            uint256 timestamp,
-            string memory metadata
+            address, 
+            uint256, 
+            string memory 
         ) 
     {
-        require(files[fileHash].timestamp != 0, "File hash not found.");
-        FileDetails memory details = files[fileHash];
+        FileDetails storage details = files[fileHash];
+        require(details.timestamp != 0, "File hash not found.");
         return (details.owner, details.timestamp, details.metadata);
     }
 
