@@ -4,70 +4,70 @@ use dotenv::dotenv;
 use std::io::ErrorKind;
 
 #[tokio::test]
-async fn test_file_upload_and_hash_storage() {
+async fn test_file_upload_and_blockchain_hash_verification() {
     dotenv().ok();
-    let server_url = match env::var("SERVER_URL") {
-        Ok(val) => val,
+    let serverEndpoint = match env::var("SERVER_URL") {
+        Ok(url) => url,
         Err(_) => panic!("SERVER_URL must be set in .env"),
     };
 
-    let python_script_path = match env::var("PYTHON_SCRIPT_PATH") {
-        Ok(val) => val,
+    let pathToPythonScript = match env::var("PYTHON_SCRIPT_PATH") {
+        Ok(path) => path,
         Err(_) => panic!("PYTHON_SCRIPT_PATH must be set in .env"),
     };
 
-    let blockchain_address = match env::var("BLOCKCHAIN_ADDRESS") {
-        Ok(val) => val,
+    let blockchainWalletAddress = match env::var("BLOCKCHAIN_ADDRESS") {
+        Ok(address) => address,
         Err(_) => panic!("BLOCKCHAIN_ADDRESS must be set in .env"),
     };
 
-    let upload_response = simulate_file_upload(&server_url).await;
-    assert!(upload_response.is_success, "File upload failed");
+    let uploadResult = simulate_upload_process(&serverEndpoint).await;
+    assert!(uploadResult.successful, "File upload failed");
 
-    let file_hash = extract_hash_from_upload_response(upload_response);
+    let hashOfUploadedFile = extract_hash_from_response(uploadResult);
 
-    // Improved error handling for Python script execution
+    // Improved error handling for running Python script
     match Command::new("python")
-        .arg(&python_script_path)
+        .arg(&pathToPythonScript)
         .arg("--hash")
-        .arg(&file_hash)
+        .arg(&hashOfUploadedFile)
         .output() {
             Ok(output) => {
                 if !output.status.success() {
-                    let error_message = format!("Python script failed to verify hash. Error: {:?}", 
+                    let errorMessage = format!("Python script failed to verify file hash. Error: {:?}", 
                                                 String::from_utf8_lossy(&output.stderr));
-                    panic!("{}", error_message);
+                    panic!("{}", errorMessage);
                 }
             },
-            Err(e) => {
-                match e.kind() {
+            Err(error) => {
+                match error.kind() {
                     ErrorKind::NotFound => panic!("Python executable not found in path"),
-                    _ => panic!("Failed to run Python script for hash verification: {:?}", e)
+                    _ => panic!("Failed to execute Python script for hash verification: {:?}", error)
                 }
             },
     };
 
-    let blockchain_verification = verify_hash_on_blockchain(&blockchain_address, &file_hash).await;
-    assert!(blockchain_verification, "Hash not found on the blockchain");
+    let isHashVerifiedOnBlockchain = confirm_hash_on_blockchain(&blockchainWalletAddress, &hashOfUploadedFile).await;
+    assert!(isHashVerifiedOnBlockchain, "Hash not verified on the blockchain");
 }
 
-async fn simulate_file_upload(server_url: &str) -> UploadResponse {
-    // Here you should implement actual file upload logic
-    // This is just a dummy response for now
-    UploadResponse { is_success: true }
+async fn simulate_upload_process(serverEndpoint: &str) -> UploadOutcome {
+    // Implement actual file upload logic here
+    // Placeholder response for demonstration
+    UploadOutcome { successful: true }
 }
 
-fn extract_hash_from_upload_response(response: UploadResponse) -> String {
-    // You should implement the actual logic to extract hash based on your response structure
-    "dummy_hash".to_string()
+fn extract_hash_from_response(response: UploadOutcome) -> String {
+    // Implement actual logic to extract hash from the given response
+    "example_hash".to_string()
 }
 
-async fn verify_hash_on_blockchain(blockchain_address: &str, file_hash: &str) -> bool {
-    // Here you should implement the actual logic to verify the hash on the blockchain
-    // This is just a dummy implementation for now
+async fn confirm_hash_on_blockchain(blockchainAddress: &str, fileHash: &str) -> bool {
+    // Implement logic to confirm the hash on the blockchain
+    // Placeholder implementation for demonstration
     true
 }
 
-struct UploadResponse {
-    is_success: bool,
+struct UploadOutcome {
+    successful: bool,
 }
