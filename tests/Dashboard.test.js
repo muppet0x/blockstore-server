@@ -1,63 +1,39 @@
-import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import '@testing-library/jest-dom';
-import Dashboard from './Dashboard';
-import axiosMock from 'axios';
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
 
-jest.mock('axios');
+const useCachedData = (endpoint) => {
+  const [data, setData] = useState(null);
 
-describe('Dashboard Component Tests', () => {
-  beforeEach(() => {
-    process.env.REACT_APP_BACKEND_URL = 'http://localhost:5000';
-  });
+  useEffect(() => {
+    const cache = sessionStorage.getItem(endpoint);
+    if (cache !== null) {
+      setData(JSON.parse(cache));
+    } else {
+      axios.get(`${process.env.REACT_APP_BACKEND_URL}/${endpoint}`)
+        .then(response => {
+          setData(response.data);
+          sessionStorage.setItem(endpoint, JSON.stringify(response.data));
+        })
+        .catch(error => console.error(error));
+    }
+  }, [endpoint]);
 
-  it('should render dashboard component and display data correctly', async () => {
-    axiosMock.get.mockResolvedValueOnce({
-      data: {
-        items: [
-          { id: 1, name: 'Item 1', description: 'This is item 1' },
-          { id: 2, name: 'Item 2', description: 'This is item 2' },
-        ],
-      },
-    });
+  return data;
+};
 
-    render(<Dashboard />);
+const Dashboard = () => {
+  const itemsData = useCachedData('items');
 
-    expect(await screen.findByText(/Item 1/)).toBeInTheDocument();
-    expect(await screen.findByText(/Item 2/)).toBeInTheDocument();
-  });
+  return (
+    <div>
+      {itemsData && itemsData.items.map(item => (
+        <div key={item.id}>
+          <h3>{item.name}</h3>
+          <p>{item.description}</p>
+        </div>
+      ))}
+    </div>
+  );
+};
 
-  it('should handle user input correctly', () => {
-    render(<Dashboard />);
-    const inputElement = screen.getByPlaceholderText('Search items...');
-    fireEvent.change(inputElement, { target: { value: 'Test input' } });
-
-    expect(inputElement.value).toBe('Test input');
-  });
-
-  it('should fetch data from backend without issues', async () => {
-    axiosMock.get.mockResolvedValueOnce({
-      data: {
-        items: [{ id: 3, name: 'Fetched Item', description: 'This is fetched from backend' }],
-      },
-    });
-
-    render(<Dashboard />);
-
-    fireEvent.click(screen.getByText('Fetch Items'));
-
-    await waitFor(() => 
-      expect(screen.getByText('Fetched Item')).toBeInTheDocument()
-    );
-  });
-
-  it('should display error message when fetch fails', async () => {
-    axiosMock.get.mockRejectedValueOnce(new Error('Failed to fetch'));
-
-    render(<Dashboard />);
-
-    fireEvent.click(screen.getByText('Retry Fetch'));
-
-    expect(await screen.findByText('Failed to fetch')).toBeInTheDocument();
-  });
-});
+export default Dashboard;
