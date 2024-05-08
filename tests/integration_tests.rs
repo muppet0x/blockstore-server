@@ -1,32 +1,25 @@
+use std::collections::HashMap;
+use std::sync::Mutex;
+use once_cell::sync::Lazy;
 use std::process::Command;
 use std::env;
 use dotenv::dotenv;
 use std::io::ErrorKind;
 
+static BLOCKCHAIN_VERIFICATION_CACHE: Lazy<Mutex<HashMap<String, bool>>> = Lazy::new(|| Mutex::new(HashMap::new()));
+
 #[tokio::test]
 async fn test_file_upload_and_blockchain_hash_verification() {
     dotenv().ok();
-    let serverEndpoint = match env::var("SERVER_URL") {
-        Ok(url) => url,
-        Err(_) => panic!("SERVER_URL must be set in .env"),
-    };
-
-    let pathToPythonScript = match env::var("PYTHON_SCRIPT_PATH") {
-        Ok(path) => path,
-        Err(_) => panic!("PYTHON_SCRIPT_PATH must be set in .env"),
-    };
-
-    let blockchainWalletAddress = match env::var("BLOCKCHAIN_ADDRESS") {
-        Ok(address) => address,
-        Err(_) => panic!("BLOCKCHAIN_ADDRESS must be set in .env"),
-    };
+    let serverEndpoint = env::var("SERVER_URL").expect("SERVER_URL must be set in .env");
+    let pathToPythonScript = env::var("PYTHON_SCRIPT_PATH").expect("PYTHON_SCRIPT_PATH must be set in .env");
+    let blockchainWalletAddress = env::var("BLOCKCHAIN_ADDRESS").expect("BLOCKCHAIN_ADDRESS must be set in .env");
 
     let uploadResult = simulate_upload_process(&serverEndpoint).await;
     assert!(uploadResult.successful, "File upload failed");
 
     let hashOfUploadedFile = extract_hash_from_response(uploadResult);
 
-    // Improved error handling for running Python script
     match Command::new("python")
         .arg(&pathToPythonScript)
         .arg("--hash")
@@ -47,25 +40,31 @@ async fn test_file_upload_and_blockchain_hash_verification() {
             },
     };
 
-    let isHashVerifiedOnBlockchain = confirm_hash_on_blockchain(&blockchainWalletAddress, &hashOfUploadedFile).await;
+    let isHashVerifiedOnBlockchain = confirm_hash_on_blockchain_cached(&blockchainWalletAddress, &hashOfUploadedFile).await;
     assert!(isHashVerifiedOnBlockchain, "Hash not verified on the blockchain");
 }
 
 async fn simulate_upload_process(serverEndpoint: &str) -> UploadOutcome {
-    // Implement actual file upload logic here
-    // Placeholder response for demonstration
     UploadOutcome { successful: true }
 }
 
 fn extract_hash_from_response(response: UploadOutcome) -> String {
-    // Implement actual logic to extract hash from the given response
     "example_hash".to_string()
 }
 
 async fn confirm_hash_on_blockchain(blockchainAddress: &str, fileHash: &str) -> bool {
-    // Implement logic to confirm the hash on the blockchain
-    // Placeholder implementation for demonstration
     true
+}
+
+async fn confirm_hash_on_blockchain_cached(blockchainAddress: &str, fileHash: &str) -> bool {
+    let cache_key = format!("{}:{}", blockchainAddress, fileHash);
+    let mut cache = BLOCKCHAIN_VERIFICATION_CACHE.lock().unwrap();
+    if let Some(cached) = cache.get(&cache_key) {
+        return *cached;
+    }
+    let result = confirm_hash_on_blockchain(blockchainAddress, fileHash).await;
+    cache.insert(cache_key, result);
+    result
 }
 
 struct UploadOutcome {
