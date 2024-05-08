@@ -1,20 +1,22 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 
-const useFetchAndCacheData = (resourceEndpoint) => {
+const useFetchResourceAndCache = (resourceEndpoint) => {
   const [resourceData, setResourceData] = useState(null);
 
   useEffect(() => {
-    const cachedData = sessionStorage.getItem(resourceEndpoint);
-    if (cachedData !== null) {
-      setResourceData(JSON.parse(cachedData));
+    const cacheKey = resourceEndpoint;
+    const cachedResourceData = sessionStorage.getItem(cacheKey);
+
+    if (cachedResourceData !== null) {
+      setResourceData(JSON.parse(cachedResourceData));
     } else {
       axios.get(`${process.env.REACT_APP_BACKEND_URL}/${resourceEndpoint}`)
         .then(response => {
           setResourceData(response.data);
-          sessionStorage.setItem(resourceEndpoint, JSON.stringify(response.data));
+          sessionStorage.setItem(cacheKey, JSON.stringify(response.data));
         })
-        .catch(error => console.error('Fetching error:', error));
+        .catch(error => console.error('Error fetching resource:', error));
     }
   }, [resourceEndpoint]);
 
@@ -22,11 +24,11 @@ const useFetchAndCacheData = (resourceEndpoint) => {
 };
 
 const Dashboard = () => {
-  const fetchedItemsData = useFetchAndCacheData('items');
+  const fetchedResourceData = useFetchResourceAndCache('items');
 
   return (
     <div>
-      {fetchedItemsData && fetchedItemsData.items.map(item => (
+      {fetchedResourceData && fetchedResourceData.items.map(item => (
         <div key={item.id}>
           <h3>{item.name}</h3>
           <p>{item.description}</p>
