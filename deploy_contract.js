@@ -1,23 +1,20 @@
 require("dotenv").config();
-const { ethers } = require("hardhat");
+const { ethers } = require("ethers");
 
-const providerCache = {};
+let providerCache = {};
 
 function getProvider(network, apiKey) {
-    if (!providerCache[network]) {
+    const networkName = network === "mainnet" ? "homestead" : network;
+    if (!providerCache[network] && (network === "rinkeby" || network === "mainnet")) {
         try {
-            if (network === "rinkeby") {
-                providerCache[network] = new ethers.providers.AlchemyProvider("rinkeby", apiKey);
-            } else if (network === "mainnet") {
-                providerCache[network] = new ethers.providers.AlchemyProvider("homestead", apiKey);
-            } else {
-                console.error("Unsupported network: " + network);
-                return null;
-            }
+            providerCache[network] = new ethers.providers.AlchemyProvider(networkName, apiKey);
         } catch (error) {
-            console.error("Failed to create provider for network: " + network + " with error: " + error.message);
+            console.error(`Failed to create provider for network: ${network} with error: ${error.message}`);
             return null;
         }
+    } else if (!providerCache[network]) {
+        console.error("Unsupported network: " + network);
+        return null;
     }
     return providerCache[network];
 }
@@ -41,22 +38,19 @@ async function main() {
     const wallet = new ethers.Wallet(privateKey, provider);
 
     try {
-        console.log("Compiling the contract...");
-        await hre.run("compile");
+        console.log("Deploying contract...");
 
-        const MyContract = await ethers.getContractFactory("MyContract");
-        console.log("Deploying MyContract...");
-
-        const myContract = await MyContract.connect(wallet).deploy();
+        const MyContract = await ethers.getContractFactory("MyContract", wallet);
+        const myContract = await MyContract.deploy();
         await myContract.deployed();
-        console.log(`MyContract deployed to: ${myContract.address}`);
+        console.log(`Contract deployed to: ${myContract.address}`);
     } catch (error) {
-        console.error("An error occurred during the contract deployment process: " + error.message);
+        console.error(`An error occurred during the deployment process: ${error.message}`);
         process.exit(1);
     }
 }
 
 main().catch((error) => {
-    console.error("An unexpected error occurred: " + error.message);
+    console.error(`An unexpected error occurred: ${error.message}`);
     process.exit(1);
 });
