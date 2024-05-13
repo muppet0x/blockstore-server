@@ -43,6 +43,7 @@ async function main() {
         const MyContract = await ethers.getContractFactory("MyContract", wallet);
         const myContract = await MyContract.deploy();
         await myContract.deployed();
+
         console.log(`Contract deployed to: ${myContract.address}`);
     } catch (error) {
         console.error(`An error occurred during the deployment process: ${error.message}`);
